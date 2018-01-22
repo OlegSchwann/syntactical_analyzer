@@ -235,7 +235,7 @@ func builtInType(tockens []string, tockenOffset int) (resultTockenOffset int, er
 // он должен состоять из букв и цифр, не начинаться с цифры и(sic!) не быть ключевым словом.
 // принимает массив токенов, смещение на проверяемое слово.
 // возвращает смещение + 1 и отсутствие ошибки или пепеданное смещение и
-func VariabelName(tockens []string, tockenOffset int) (resultTockenOffset int, err error) {
+func variabelName(tockens []string, tockenOffset int) (resultTockenOffset int, err error) {
 	reservedNames := map[string]bool{
 		"__abstract":    true, "__alignof": true, "__asm": true, "__assume": true,
 		"__based":       true, "__box": true, "__cdecl": true, "__declspec": true,
@@ -287,35 +287,30 @@ func VariabelName(tockens []string, tockenOffset int) (resultTockenOffset int, e
 }
 
 // функция проверяет, является ли массив токенов, начиная с переданного смещения включительно
-// описанием переменной. Описание переменной состоит из имени и модификаторов
-// ─тип_данных─┬↔┬─имя переменной─┬────↔────┬┬┬──────────────────────↔──────────────────────────┬─
-//             ↓ ↑                ↓         ↑│↓                                                 ↑
-//             ├&┤                └[┬число─]┘│└(─┬───────────────────↔───────────────────────┬─)┘
-//             └*┘                  └]───────┘   └описание переменной┬──────────↔───────────┬┘
-//                                                                   ↓                      ↑
-//                                                                   └,─описание переменной─┘
+// модификатором переменной
+// ─┬↔┬─
+//  ↓ ↑
+//  └*┘
 // принимает массив токенов и смещение, с которого ищет,
 // возвращает смещение на следующий после описания токен и отсутствие ошибки или смещение на ошибку и её описание
-func variableDescription(tockens []string, tockenOffset int) (int, error) {
-	tockenOffset, err := builtInType(tockens, tockenOffset)
-	if err != nil {
-		err = errors.New("not a valid description, should start with type: " + err.Error())
-		return tockenOffset, err
-	} //началось с типа и ошибок нет
+func variableModifier(tockens []string, tockenOffset int) (int, error) {
 	// содержит модификаторы типа указатель или ссылка для C++, не обязательно
 	for tockenOffset != len(tockens) && (tockens[tockenOffset] == "*" || tockens[tockenOffset] == "&") {
 		tockenOffset++
 	} //тип, модификатор
-	if tockenOffset == len(tockens) {
-		err := errors.New("not a valid description, missing name, end detected")
-		return tockenOffset, err
-	}
-	tockenOffset, err = VariabelName(tockens, tockenOffset)
-	if err != nil {
-		err = errors.New("not a valid description, missing name of variable: " + err.Error())
-		return tockenOffset, err
-	} //тип, возможно модификатор, имя
-	//стандарт позволяет объявлять либо одномерный массив с неизвестной длинной, либо сколько угодно мерный со статической длинной
+	return tockenOffset, nil
+}
+
+// функция проверяет, является ли массив токенов, начиная с переданного смещения включительно
+// модификатором переменной. стандарт позволяет объявлять либо одномерный массив с неизвестной длинной,
+// либо сколько угодно мерный со статической длинной
+// ─┬────↔────┬┬─
+//  ↓         ↑│
+//  └[┬число─]┘│
+//    └]───────┘
+// принимает массив токенов и смещение, с которого ищет,
+// возвращает смещение на следующий после описания токен и отсутствие ошибки или смещение на ошибку и её описание
+func arrayBrackets(tockens []string, tockenOffset int) (int, error) {
 	if tockenOffset <= len(tockens)-2 {
 		if tockens[tockenOffset] == "[" && tockens[tockenOffset+1] == "]" {
 			tockenOffset = tockenOffset + 2
@@ -325,12 +320,22 @@ func variableDescription(tockens []string, tockenOffset int) (int, error) {
 				digit.MatchString(tockens[tockenOffset+1]) && tockens[tockenOffset+2] == "]" {
 				tockenOffset = tockenOffset + 3
 			}
-		} //тип, модификатор, имя, массив
+		}
 	}
-	if tockenOffset == len(tockens) {
-		return tockenOffset, nil
-	}
+	return tockenOffset, nil
+}
+
+// функция проверяет, является ли массив токенов, начиная с переданного смещения включительно
+// модификатором переменной "функция".
+// ─(─┬───────────────────↔───────────────────────┬─)─
+//    └описание переменной┬──────────↔───────────┬┘      //косвенная рекурсия
+//                        ↓                      ↑
+//                        └,─описание переменной─┘
+// принимает массив токенов и смещение, с которого ищет,
+// возвращает смещение на следующий после описания токен и отсутствие ошибки или смещение на ошибку и её описание
+func parenthesesFunction(tockens []string, tockenOffset int) (int, error) {
 	// можно передавать функцию
+	var err error
 	if tockens[tockenOffset] == "(" {
 		tockenOffset++
 		//тип, модификатор, название, начало функции
@@ -339,7 +344,7 @@ func variableDescription(tockens []string, tockenOffset int) (int, error) {
 			return tockenOffset, err
 		}
 		// не рекурсивный случай - просто закрывающая скобка после открывающей
-		if tockens[tockenOffset] == ")"{
+		if tockens[tockenOffset] == ")" {
 			tockenOffset++
 		} else { // рекурсивный случай - после скобки что-то идёт
 			tockenOffset, err = variableDescription(tockens, tockenOffset)
@@ -351,7 +356,7 @@ func variableDescription(tockens []string, tockenOffset int) (int, error) {
 				err = errors.New("not a valid description, pairwise bracket, end detected")
 				return tockenOffset, err
 			} // прошло нормально первое. Теперь запятая и сколько угодно новых объявлений через запятую
-			for tockens[tockenOffset] == ","{
+			for tockens[tockenOffset] == "," {
 				tockenOffset++
 				if tockenOffset == len(tockens) {
 					err = errors.New("not a valid description, pairwise bracket, end detected")
@@ -363,7 +368,7 @@ func variableDescription(tockens []string, tockenOffset int) (int, error) {
 					return tockenOffset, err
 				}
 			}
-			if tockens[tockenOffset] == ")"{
+			if tockens[tockenOffset] == ")" {
 				tockenOffset++
 			} else {
 				err = errors.New("unknown after the announcement, a closing parenthesis was expected, " +
@@ -371,14 +376,107 @@ func variableDescription(tockens []string, tockenOffset int) (int, error) {
 				return tockenOffset, err
 			}
 		}
-	}// корректное описание, скобка закрыта.
+	} else { // корректное описание, скобка закрыта.
+		err = errors.New("invalid argument description, no opening parenthesis")
+	}
+	return tockenOffset, err
+}
+
+// функция проверяет, является ли массив токенов, начиная с переданного смещения включительно
+// описанием переменной. Описание переменной состоит из имени и модификаторов
+// ─тип_данных─┬↔┬─имя переменной─┬────↔────┬┬┬──────────────────────↔──────────────────────────┬─
+//             ↓ ↑                ↓         ↑│↓                                                 ↑
+//             ├&┤                └[┬число─]┘│└(─┬───────────────────↔───────────────────────┬─)┘
+//             └*┘                  └]───────┘   └описание переменной┬──────────↔───────────┬┘
+//                                                                   ↓                      ↑
+//                                                                   └,─описание переменной─┘
+// принимает массив токенов и смещение, с которого ищет,
+// возвращает смещение на следующий после описания токен и отсутствие ошибки или смещение на ошибку и её описание
+func variableDescription(tockens []string, tockenOffset int) (int, error) {
+	var err error
+	tockenOffset, err = builtInType(tockens, tockenOffset)
+	if err != nil {
+		err = errors.New("not a valid description, should start with type: " + err.Error())
+		return tockenOffset, err
+	} //началось с типа и ошибок нет
+	tockenOffset, err = variableModifier(tockens, tockenOffset)
+	if tockenOffset == len(tockens) {
+		err = errors.New("not a valid description, missing name, end detected")
+		return tockenOffset, err
+	}
+	tockenOffset, err = variabelName(tockens, tockenOffset)
+	if err != nil {
+		err = errors.New("not a valid description, missing name of variable: " + err.Error())
+		return tockenOffset, err
+	} //тип, возможно модификатор, имя
+	tockenOffset, err = arrayBrackets(tockens, tockenOffset)
+	if tockenOffset == len(tockens) {
+		return tockenOffset, nil
+	}
+	// можно передавать функцию, но она не обязательно должна быть.
+	newTockenOffset, err := parenthesesFunction(tockens, tockenOffset)
+	if newTockenOffset != tockenOffset && err != nil {
+		// значит не просто не нашли объявление, а нашли открывающую скобку и ошибку.
+		err = errors.New("not a valid description, invalid argument description: " + err.Error())
+		tockenOffset = newTockenOffset
+		return tockenOffset, err
+	} else {
+		tockenOffset = newTockenOffset
+	}
 	return tockenOffset, nil
 }
 
-//зарефакторить так, что бы вынести функции проверки модификаторов и содержимого скобок
-func main() {
-
+// функция проверяет, является ли массив токенов, начиная с переданного смещения включительно
+// описанием функции. Описание функции состоит из имени, модификаторов, скобок с описанием параметров
+// ─тип_данных─┬↔┬─имя переменной─┬────↔────┬┬─(─┬───────────────────↔───────────────────────┬─)─;─
+//             ↓ ↑                ↓         ↑│   ↓                                           ↑
+//             ├&┤                └[┬число─]┘│   └описание переменной┬──────────↔───────────┬┘
+//             └*┘                  └]───────┘                       ↓                      ↑
+//                                                                   └,─описание переменной─┘
+// принимает массив токенов и смещение, с которого ищет,
+// возвращает смещение на следующий после описания токен и отсутствие ошибки или смещение на ошибку и её описание
+func FunctionDescription(tockens []string, tockenOffset int) (int, error) {
+	var err error
+	tockenOffset, err = builtInType(tockens, tockenOffset)
+	if err != nil {
+		err = errors.New("not a valid description, should start with type: " + err.Error())
+		return tockenOffset, err
+	} //началось с типа и ошибок нет
+	tockenOffset, err = variableModifier(tockens, tockenOffset)
+	if tockenOffset == len(tockens) {
+		err = errors.New("not a valid description, missing name, end detected")
+		return tockenOffset, err
+	}
+	tockenOffset, err = variabelName(tockens, tockenOffset)
+	if err != nil {
+		err = errors.New("not a valid description, missing name of variable: " + err.Error())
+		return tockenOffset, err
+	} //тип, возможно модификатор, имя
+	tockenOffset, err = arrayBrackets(tockens, tockenOffset)
+	if tockenOffset == len(tockens) {
+		err = errors.New("expected function argument, found the end of string")
+		return tockenOffset, err
+	}
+	// можно передавать функцию
+	tockenOffset, err = parenthesesFunction(tockens, tockenOffset)
+	if err != nil {
+		err = errors.New("invalid function description, invalid argument description: " + err.Error())
+		return tockenOffset, err
+	}
+	if tockenOffset == len(tockens) {
+		err = errors.New("expected ';', found the end of string")
+		return tockenOffset, err
+	}
+	if tockens[tockenOffset] == ";" {
+		tockenOffset++
+	} else {
+		err = errors.New("unknown token, expected ';' after the description of the function parameters")
+		return tockenOffset, err
+	}
+	return tockenOffset, nil
 }
 
-// только заканчивая задачу, понимаешь, как выглядит вопрос. Надо было передавать не массив, а структуру
-// массив строк, текущее смещение.
+func main() {
+	newOffset, _ := FunctionDescription([]string{"int", "sub", "(", "int", "a", ",", "int", "b", ")", ","}, 0)
+	print(newOffset)
+}
