@@ -10,6 +10,11 @@ import (
 //Считать, что параметры только стандартных (скалярных) типов. Например:
 //int as3(int a_34, float bjt, unsigned char car);
 
+//Надо было сразу подумать о поведении в случае ошибки.
+//Надо сделать так, что бы озвращал смещение на ошибку и её описание.
+//тогда в результате можно будет подчеркнуть ошибку красным.
+//На будущее: думать не только о интерфейсе, но и интерфейсе на случай ошибки
+
 //напишем функцию разбора, что бы не учитывать пробелы в нормальных функциях
 func Tokenization(parsedString string) (result []string, err error) {
 	whitespace, _ := regexp.Compile(`\s`) // пробельный символ
@@ -228,49 +233,51 @@ func builtInType(tockens []string, tockenOffset int) (resultTockenOffset int, er
 
 // функция проверяет, является ли следующий токен названием переменной
 // он должен состоять из букв и цифр, не начинаться с цифры и(sic!) не быть ключевым словом.
+// принимает массив токенов, смещение на проверяемое слово.
+// возвращает смещение + 1 и отсутствие ошибки или пепеданное смещение и
 func VariabelName(tockens []string, tockenOffset int) (resultTockenOffset int, err error) {
 	reservedNames := map[string]bool{
-		"__abstract": true, "__alignof": true, "__asm": true, "__assume": true,
-		"__based": true, "__box": true, "__cdecl": true, "__declspec": true,
-		"__delegate": true, "__event": true, "__except": true, "__fastcall": true,
-		"__finally": true, "__forceinline": true, "__gc": true, "__hook": true,
-		"__identifier": true, "__if_exists": true, "__if_not_exists": true, "__inline": true,
-		"__int16": true, "__int32": true, "__int64": true, "__int8": true,
-		"__interface": true, "__leave": true, "__m128": true, "__m128d": true,
-		"__m128i": true, "__m64": true, "__multiple_inheritance": true, "__nogc": true,
-		"__noop": true, "__pin": true, "__property": true, "__raise": true,
-		"__sealed": true, "__single_inheritance": true, "__stdcall": true, "__super": true,
-		"__thiscall": true, "__try_cast": true, "__unaligned": true, "__unhook": true,
-		"__uuidof": true, "__value": true, "__virtual_inheritance": true, "__w64": true,
-		"__wchar_t": true, "wchar_t": true, "abstract": true, "array": true,
-		"auto": true, "bool": true, "break": true, "case": true,
-		"catch": true, "char": true, "const": true, "const_cast": true,
-		"continue": true, "decltype": true, "default": true, "deprecated": true,
-		"dllexport": true, "dllimport": true, "do": true, "double": true,
-		"dynamic_cast": true, "else": true, "enum": true, "explicit": true,
-		"extern": true, "false": true, "finally": true, "float": true,
-		"for": true, "each": true, "in": true, "friend": true,
-		"friend_as": true, "gcnew": true, "generic": true, "goto": true,
-		"if": true, "initonly": true, "inline": true, "int": true,
-		"interior_ptr": true, "literal": true, "long": true, "mutable": true,
-		"naked": true, "namespace": true, "new": true, "noinline": true,
-		"noreturn": true, "nothrow": true, "novtable": true, "nullptr": true,
-		"private": true, "property": true, "protected": true, "public": true,
-		"ref": true, "class": true, "register": true, "reinterpret_cast": true,
-		"return": true, "safecast": true, "sealed": true, "selectany": true,
-		"short": true, "signed": true, "sizeof": true, "static": true,
+		"__abstract":    true, "__alignof": true, "__asm": true, "__assume": true,
+		"__based":       true, "__box": true, "__cdecl": true, "__declspec": true,
+		"__delegate":    true, "__event": true, "__except": true, "__fastcall": true,
+		"__finally":     true, "__forceinline": true, "__gc": true, "__hook": true,
+		"__identifier":  true, "__if_exists": true, "__if_not_exists": true, "__inline": true,
+		"__int16":       true, "__int32": true, "__int64": true, "__int8": true,
+		"__interface":   true, "__leave": true, "__m128": true, "__m128d": true,
+		"__m128i":       true, "__m64": true, "__multiple_inheritance": true, "__nogc": true,
+		"__noop":        true, "__pin": true, "__property": true, "__raise": true,
+		"__sealed":      true, "__single_inheritance": true, "__stdcall": true, "__super": true,
+		"__thiscall":    true, "__try_cast": true, "__unaligned": true, "__unhook": true,
+		"__uuidof":      true, "__value": true, "__virtual_inheritance": true, "__w64": true,
+		"__wchar_t":     true, "wchar_t": true, "abstract": true, "array": true,
+		"auto":          true, "bool": true, "break": true, "case": true,
+		"catch":         true, "char": true, "const": true, "const_cast": true,
+		"continue":      true, "decltype": true, "default": true, "deprecated": true,
+		"dllexport":     true, "dllimport": true, "do": true, "double": true,
+		"dynamic_cast":  true, "else": true, "enum": true, "explicit": true,
+		"extern":        true, "false": true, "finally": true, "float": true,
+		"for":           true, "each": true, "in": true, "friend": true,
+		"friend_as":     true, "gcnew": true, "generic": true, "goto": true,
+		"if":            true, "initonly": true, "inline": true, "int": true,
+		"interior_ptr":  true, "literal": true, "long": true, "mutable": true,
+		"naked":         true, "namespace": true, "new": true, "noinline": true,
+		"noreturn":      true, "nothrow": true, "novtable": true, "nullptr": true,
+		"private":       true, "property": true, "protected": true, "public": true,
+		"ref":           true, "class": true, "register": true, "reinterpret_cast": true,
+		"return":        true, "safecast": true, "sealed": true, "selectany": true,
+		"short":         true, "signed": true, "sizeof": true, "static": true,
 		"static_assert": true, "static_cast": true, "struct": true, "switch": true,
-		"this": true, "thread": true, "throw": true, "true": true,
-		"try": true, "typedef": true, "typeid": true, "typename": true,
-		"union": true, "using": true, "uuid": true, "virtual": true,
-		"void": true, "volatile": true, "while": true}
+		"this":          true, "thread": true, "throw": true, "true": true,
+		"try":           true, "typedef": true, "typeid": true, "typename": true,
+		"union":         true, "using": true, "uuid": true, "virtual": true,
+		"void":          true, "volatile": true, "while": true}
 	_, isContained := reservedNames[tockens[tockenOffset]]
 	if !isContained {
 		nameForm, _ := regexp.Compile(`^[A-Z_a-z][0-9A-Z_a-z]*$`)
 		if nameForm.MatchString(tockens[tockenOffset]) {
 			tockenOffset++
 		} else {
-			err = errors.New("not a variabel name")
+			err = errors.New("сontains illegal characters or starts with a number")
 		}
 	} else {
 		err = errors.New("matches the keyword, can not be a variabel name")
@@ -287,25 +294,27 @@ func VariabelName(tockens []string, tockenOffset int) (resultTockenOffset int, e
 //             └*┘                  └]───────┘   └описание переменной┬──────────↔───────────┬┘
 //                                                                   ↓                      ↑
 //                                                                   └,─описание переменной─┘
-func variableDescription(tockens []string, tockenOffset int) (resultTockenOffset int, err error) {
-	resultTockenOffset = tockenOffset
-	tockenOffset, err = builtInType(tockens, tockenOffset)
+// принимает массив токенов и смещение, с которого ищет,
+// возвращает смещение на следующий после описания токен и отсутствие ошибки или смещение на ошибку и её описание
+func variableDescription(tockens []string, tockenOffset int) (int, error) {
+	tockenOffset, err := builtInType(tockens, tockenOffset)
 	if err != nil {
 		err = errors.New("not a valid description, should start with type: " + err.Error())
-		return resultTockenOffset, err
+		return tockenOffset, err
 	} //началось с типа и ошибок нет
 	// содержит модификаторы типа указатель или ссылка для C++, не обязательно
-	if tockenOffset == len(tockens) {
-		return resultTockenOffset, err
-	}
-	for tockens[tockenOffset] == "*" || tockens[tockenOffset] == "&" {
+	for tockenOffset != len(tockens) && (tockens[tockenOffset] == "*" || tockens[tockenOffset] == "&") {
 		tockenOffset++
 	} //тип, модификатор
+	if tockenOffset == len(tockens) {
+		err := errors.New("not a valid description, missing name, end detected")
+		return tockenOffset, err
+	}
 	tockenOffset, err = VariabelName(tockens, tockenOffset)
 	if err != nil {
-		err = errors.New("not a valid name of variable: " + err.Error())
-		return resultTockenOffset, err
-	} //тип, модификатор, имя
+		err = errors.New("not a valid description, missing name of variable: " + err.Error())
+		return tockenOffset, err
+	} //тип, возможно модификатор, имя
 	//стандарт позволяет объявлять либо одномерный массив с неизвестной длинной, либо сколько угодно мерный со статической длинной
 	if tockenOffset <= len(tockens)-2 {
 		if tockens[tockenOffset] == "[" && tockens[tockenOffset+1] == "]" {
@@ -318,13 +327,58 @@ func variableDescription(tockens []string, tockenOffset int) (resultTockenOffset
 			}
 		} //тип, модификатор, имя, массив
 	}
-
-	// TODO: функции чтоб можно было передавать как параметр
-	resultTockenOffset = tockenOffset
-	return resultTockenOffset, err
+	if tockenOffset == len(tockens) {
+		return tockenOffset, nil
+	}
+	// можно передавать функцию
+	if tockens[tockenOffset] == "(" {
+		tockenOffset++
+		//тип, модификатор, название, начало функции
+		if tockenOffset == len(tockens) {
+			err = errors.New("not a valid description, pairwise bracket, end detected")
+			return tockenOffset, err
+		}
+		// не рекурсивный случай - просто закрывающая скобка после открывающей
+		if tockens[tockenOffset] == ")"{
+			tockenOffset++
+		} else { // рекурсивный случай - после скобки что-то идёт
+			tockenOffset, err = variableDescription(tockens, tockenOffset)
+			if err != nil {
+				err = errors.New("not valid function parameter declaration, not valid argument: " + err.Error())
+				return tockenOffset, err
+			}
+			if tockenOffset == len(tockens) {
+				err = errors.New("not a valid description, pairwise bracket, end detected")
+				return tockenOffset, err
+			} // прошло нормально первое. Теперь запятая и сколько угодно новых объявлений через запятую
+			for tockens[tockenOffset] == ","{
+				tockenOffset++
+				if tockenOffset == len(tockens) {
+					err = errors.New("not a valid description, pairwise bracket, end detected")
+					return tockenOffset, err
+				}
+				tockenOffset, err = variableDescription(tockens, tockenOffset)
+				if err != nil {
+					err = errors.New("not valid function parameter declaration, not valid argument: " + err.Error())
+					return tockenOffset, err
+				}
+			}
+			if tockens[tockenOffset] == ")"{
+				tockenOffset++
+			} else {
+				err = errors.New("unknown after the announcement, a closing parenthesis was expected, " +
+					"perhaps you forgot the comma")
+				return tockenOffset, err
+			}
+		}
+	}// корректное описание, скобка закрыта.
+	return tockenOffset, nil
 }
 
+//зарефакторить так, что бы вынести функции проверки модификаторов и содержимого скобок
 func main() {
-	resultTockenOffset, _ := variableDescription([]string{"bool", "is_correct", "[", "16", "]", "[", "16", "]"}, 0)
-	print(resultTockenOffset)
+
 }
+
+// только заканчивая задачу, понимаешь, как выглядит вопрос. Надо было передавать не массив, а структуру
+// массив строк, текущее смещение.

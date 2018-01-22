@@ -145,12 +145,16 @@ func TestVariableDescription(t *testing.T) {
 	}{
 		{[]string{"char", "my_byte"}, 2},
 		{[]string{"short", "i"}, 2},
-		{[]string{"unsigned", "int", "[", "]"}, 0}, //ошибка
+		{[]string{"unsigned", "int", "[", "]"}, 2}, // на первый ошибочный токен
 		{[]string{"123_signed"}, 0},
-		// согласно правилам misra с больше бвух разыменовываний быть не должно
+		// согласно правилам misra с больше двух разыменовываний быть не должно, однако язык это никак не ограничивает.
 		{[]string{"int", "*", "*", "*", "unsigned_123"}, 5},
 		{[]string{"bool", "is_correct", "[", "16", "]", "[", "16", "]"}, 8},
-		{[]string{"bool", "&", "by_link"}, 3}}
+		{[]string{"bool", "&", "by_link"}, 3},
+		{[]string{"int", "main", "(", ")"}, 4}, // первого раза тесты прошло!
+		{[]string{"int", "sub", "(", "int", "a", ",", "int", "b", ")"}, 9},
+		{[]string{"int", "main", "(", "int", "argc", ",", "char", "*", "argv", "[", "]", ")"}, 12},
+		{[]string{"int", "sort", "(", "int", "in_array", ",", "int", "swap", "(", "int", "*", "a", ",", "int", "*", "b", ")", ")"}, 18}}
 	for _, testCase := range names {
 		new_offset, err := variableDescription(testCase.InArray, 0)
 		if new_offset != testCase.ResultOffset {
