@@ -5,70 +5,34 @@ import (
 	"testing"
 )
 
-func TestTokenization1(t *testing.T) {
-	input := "int as3();"
-	expected := []string{"int", "as3", "(", ")", ";"}
-	found, err := Tokenization(input)
-	if err != nil {
-		t.Errorf("ожидалось %t\n найдено %t\n, ошибка %s", expected, found, err.Error())
-	} else {
-		if !reflect.DeepEqual(found, expected) {
-			t.Errorf("ожидалось %t найдено %t", expected, found)
+func TestTokenization(t *testing.T) {
+	valid_tockens := []struct {
+		InString      string
+		ResultArray   []string
+	}{
+		{"int as3(int a_34, float bjt, unsigned char car);",
+			[]string{"int", "as3", "(", "int", "a_34", ",", "float", "bjt", ",", "unsigned", "char", "car", ")", ";"}},
+		{"int as3(int a_34[12]);",
+			[]string{"int", "as3", "(", "int", "a_34", "[", "12", "]", ")", ";"}},
+		{"int as3(int a_34);",
+			[]string{"int", "as3", "(", "int", "a_34", ")", ";"}},
+		{"int *as3();",
+			[]string{"int", "*", "as3", "(", ")", ";"}},
+		{"int as3();", []string{"int", "as3", "(", ")", ";"}},
+		{"int sort(int in_array, int swap(int *a, int *b))",
+			[]string{"int", "sort", "(", "int", "in_array", ",", "int", "swap", "(", "int", "*", "a", ",", "int", "*", "b", ")", ")"}}}
+	for _, testCase := range valid_tockens {
+		result, err := Tokenization(testCase.InString)
+		if err != nil {
+			t.Errorf("обнаружена ошибка: " + err.Error())
+		} else {
+			if !reflect.DeepEqual(result, testCase.ResultArray) {
+				t.Error("ожидалось ", testCase.ResultArray, " найдено ", result)
+			}
 		}
 	}
 }
 
-func TestTokenization2(t *testing.T) {
-	input := "int *as3();"
-	expected := []string{"int", "*", "as3", "(", ")", ";"}
-	found, err := Tokenization(input)
-	if err != nil {
-		t.Errorf("ожидалось %t\n найдено %t\n, ошибка %s", expected, found, err.Error())
-	} else {
-		if !reflect.DeepEqual(found, expected) {
-			t.Errorf("ожидалось %t найдено %t", expected, found)
-		}
-	}
-}
-
-func TestTokenization3(t *testing.T) {
-	input := "int as3(int a_34);"
-	expected := []string{"int", "as3", "(", "int", "a_34", ")", ";"}
-	found, err := Tokenization(input)
-	if err != nil {
-		t.Errorf("ожидалось %t\n найдено %t\n, ошибка %s", expected, found, err.Error())
-	} else {
-		if !reflect.DeepEqual(found, expected) {
-			t.Errorf("ожидалось %t найдено %t", expected, found)
-		}
-	}
-}
-
-func TestTokenization4(t *testing.T) {
-	input := "int as3(int a_34[12]);"
-	expected := []string{"int", "as3", "(", "int", "a_34", "[", "12", "]", ")", ";"}
-	found, err := Tokenization(input)
-	if err != nil {
-		t.Errorf("ожидалось %t\n найдено %t\n, ошибка %s", expected, found, err.Error())
-	} else {
-		if !reflect.DeepEqual(found, expected) {
-			t.Errorf("ожидалось %t найдено %t", expected, found)
-		}
-	}
-}
-
-func TestTokenization5(t *testing.T) {
-	input := "int as3(int a_34, float bjt, unsigned char car);"
-	expected := []string{"int", "as3", "(", "int", "a_34", ",", "float", "bjt", ",", "unsigned", "char", "car", ")", ";"}
-	found, err := Tokenization(input)
-	if err != nil {
-		t.Errorf("ожидалось %t\n найдено %t\n, ошибка %s", expected, found, err.Error())
-	} else {
-		if !reflect.DeepEqual(found, expected) {
-			t.Errorf("ожидалось %t найдено %t", expected, found)
-		}
-	}
-}
 
 func TestType(t *testing.T) {
 	valid_tockens := []struct {

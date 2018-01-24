@@ -4,6 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"bufio"
+	"os"
+	"strings"
 )
 
 //Вариант 16. C++. Разработать грамматику и распознаватель прототипов функции.
@@ -477,6 +480,22 @@ func FunctionDescription(tockens []string, tockenOffset int) (int, error) {
 }
 
 func main() {
-	newOffset, _ := FunctionDescription([]string{"int", "sub", "(", "int", "a", ",", "int", "b", ")", ","}, 0)
-	print(newOffset)
+	//приметивная консольная версия
+	fmt.Println("Введите описание С++ функции:")
+	scanner := bufio.NewScanner(os.Stdin)
+	var text string
+	for { // break the loop if text == "q"
+		scanner.Scan()
+		text = scanner.Text()
+		tokenArray, _ := Tokenization(text)
+		resultTokenOffset, err := FunctionDescription(tokenArray, 0)
+		if (resultTokenOffset == len(tokenArray)) && (err == nil) {
+			fmt.Println("Это валидная функция на С++")
+		} else {
+			out_put := strings.Join(tokenArray[0:resultTokenOffset], " ") +
+				" \x1B[31m" + tokenArray[resultTokenOffset] + "\x1B[0m " +
+				strings.Join(tokenArray[resultTokenOffset+1:len(tokenArray)], " ")
+			fmt.Println(out_put, "\n", err.Error())
+		}
+	}
 }
